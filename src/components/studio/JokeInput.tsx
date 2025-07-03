@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Wand2 } from "lucide-react";
+import VoiceSelection from "./VoiceSelection";
 
 interface JokeInputProps {
   joke: string;
@@ -11,6 +12,8 @@ interface JokeInputProps {
   setRewrittenJoke: (joke: string) => void;
   isRewriting: boolean;
   onRewrite: () => void;
+  selectedVoice: string;
+  setSelectedVoice: (voiceId: string) => void;
 }
 
 const JokeInput = ({ 
@@ -19,7 +22,9 @@ const JokeInput = ({
   rewrittenJoke, 
   setRewrittenJoke,
   isRewriting, 
-  onRewrite 
+  onRewrite,
+  selectedVoice,
+  setSelectedVoice,
 }: JokeInputProps) => {
   return (
     <Card className="bg-card border-border/50 shadow-card">
@@ -42,23 +47,26 @@ const JokeInput = ({
           />
         </div>
         
-        <Button 
-          onClick={onRewrite}
-          disabled={!joke.trim() || isRewriting}
-          className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-        >
-          {isRewriting ? (
-            <>
-              <Wand2 className="w-4 h-4 mr-2 animate-spin" />
-              AI is rewriting your joke...
-            </>
-          ) : (
-            <>
-              <Wand2 className="w-4 h-4 mr-2" />
-              Rewrite with AI Magic
-            </>
-          )}
-        </Button>
+        <div className="grid md:grid-cols-2 gap-4">
+          <Button 
+            onClick={onRewrite}
+            disabled={!joke.trim() || isRewriting}
+            className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+          >
+            {isRewriting ? (
+              <>
+                <Wand2 className="w-4 h-4 mr-2 animate-spin" />
+                AI is rewriting your joke...
+              </>
+            ) : (
+              <>
+                <Wand2 className="w-4 h-4 mr-2" />
+                Rewrite with AI Magic
+              </>
+            )}
+          </Button>
+          <VoiceSelection selectedVoice={selectedVoice} setSelectedVoice={setSelectedVoice} />
+        </div>
         
         {rewrittenJoke && (
           <div className="animate-slide-up">

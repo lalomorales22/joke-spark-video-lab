@@ -3,6 +3,98 @@ export interface ApiKeys {
   elevenlabs: string;
 }
 
+export interface ElevenLabsVoice {
+  id: string;
+  name: string;
+  gender: string;
+  accent: string;
+  description: string;
+  useCase: string;
+}
+
+export const AVAILABLE_VOICES: ElevenLabsVoice[] = [
+  {
+    id: '9BWtsMINqrJLrRacOk9x',
+    name: 'Aria',
+    gender: 'female',
+    accent: 'American',
+    description: 'expressive',
+    useCase: 'social media'
+  },
+  {
+    id: 'CwhRBWXzGAHq8TQ4Fs17',
+    name: 'Roger',
+    gender: 'male', 
+    accent: 'American',
+    description: 'confident',
+    useCase: 'social media'
+  },
+  {
+    id: 'EXAVITQu4vr4xnSDxMaL',
+    name: 'Sarah',
+    gender: 'female',
+    accent: 'American',
+    description: 'soft',
+    useCase: 'news'
+  },
+  {
+    id: 'FGY2WhTYpPnrIDTdsKH5',
+    name: 'Laura',
+    gender: 'female',
+    accent: 'American',
+    description: 'upbeat',
+    useCase: 'social media'
+  },
+  {
+    id: 'IKne3meq5aSn9XLyUdCD',
+    name: 'Charlie',
+    gender: 'male',
+    accent: 'Australian',
+    description: 'natural',
+    useCase: 'conversational'
+  },
+  {
+    id: 'JBFqnCBsd6RMkjVDRZzb',
+    name: 'George',
+    gender: 'male',
+    accent: 'British',
+    description: 'warm',
+    useCase: 'narration'
+  },
+  {
+    id: 'TX3LPaxmHKxFdv7VOQHJ',
+    name: 'Liam',
+    gender: 'male',
+    accent: 'American',
+    description: 'articulate',
+    useCase: 'narration'
+  },
+  {
+    id: 'bIHbv24MWmeRgasZH58o',
+    name: 'Will',
+    gender: 'male',
+    accent: 'American',
+    description: 'friendly',
+    useCase: 'social media'
+  },
+  {
+    id: 'cgSgspJ2msm6clMCkdW9',
+    name: 'Jessica',
+    gender: 'female',
+    accent: 'American',
+    description: 'expressive',
+    useCase: 'conversational'
+  },
+  {
+    id: 'cjVigY5qzO86Huf0OWal',
+    name: 'Eric',
+    gender: 'male',
+    accent: 'American',
+    description: 'friendly',
+    useCase: 'conversational'
+  }
+];
+
 export const getApiKeys = (): ApiKeys | null => {
   try {
     const stored = localStorage.getItem('joke-studio-api-keys');
@@ -36,7 +128,7 @@ export const rewriteJokeWithAI = async (joke: string): Promise<string> => {
         messages: [
           {
             role: 'system',
-            content: 'You are a comedy expert. Rewrite the given joke to make it funnier, more engaging, and suitable for short-form video content. Keep it concise but punchy. Make sure the timing and delivery work well for spoken format.'
+            content: 'You are a comedy script writer. Rewrite the given joke as a clean script with only dialogue and spoken text. Do NOT include any descriptive words, stage directions, or terms like "cut to", "wife", "narrator says", or any other non-spoken elements. Only provide the actual words that should be spoken aloud. Make it funnier, more engaging, and suitable for short-form video content. Keep it concise but punchy with natural speech patterns.'
           },
           {
             role: 'user',
@@ -60,14 +152,14 @@ export const rewriteJokeWithAI = async (joke: string): Promise<string> => {
   }
 };
 
-export const generateVoiceWithElevenLabs = async (text: string): Promise<Blob> => {
+export const generateVoiceWithElevenLabs = async (text: string, voiceId: string = '9BWtsMINqrJLrRacOk9x'): Promise<Blob> => {
   const keys = getApiKeys();
   if (!keys?.elevenlabs) {
     throw new Error('ElevenLabs API key not configured');
   }
 
   try {
-    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/9BWtsMINqrJLrRacOk9x', {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
         'Accept': 'audio/mpeg',
@@ -97,13 +189,24 @@ export const generateVoiceWithElevenLabs = async (text: string): Promise<Blob> =
 
 export const generateCaptions = (text: string, audioDuration: number) => {
   const words = text.split(' ');
-  const timePerWord = audioDuration / words.length;
+  const wordsPerCaption = 4; // Show 4-5 words at a time, using 4 as base
+  const captions = [];
   
-  const captions = words.map((word, index) => ({
-    word,
-    start: index * timePerWord,
-    end: (index + 1) * timePerWord
-  }));
+  // Group words into chunks of 4-5 words
+  for (let i = 0; i < words.length; i += wordsPerCaption) {
+    const chunk = words.slice(i, i + wordsPerCaption);
+    const chunkText = chunk.join(' ');
+    
+    // Calculate timing for this chunk
+    const startTime = (i / words.length) * audioDuration;
+    const endTime = ((i + chunk.length) / words.length) * audioDuration;
+    
+    captions.push({
+      word: chunkText, // Keep this property name for compatibility
+      start: startTime,
+      end: endTime
+    });
+  }
   
   return captions;
 };

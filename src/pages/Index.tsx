@@ -4,8 +4,9 @@ import JokeInput from "@/components/studio/JokeInput";
 import FileUpload from "@/components/studio/FileUpload";
 import ProcessingSteps from "@/components/studio/ProcessingSteps";
 import { useToast } from "@/hooks/use-toast";
-import { rewriteJokeWithAI, hasValidApiKeys, generateVoiceWithElevenLabs, generateCaptions, downloadFile, getAudioDuration } from "@/lib/api";
+import { rewriteJokeWithAI, hasValidApiKeys, generateVoiceWithElevenLabs, generateCaptions, downloadFile, getAudioDuration, AVAILABLE_VOICES } from "@/lib/api";
 import { VideoProcessor } from "@/lib/videoProcessor";
+import { transcodeToMp4, canTranscodeToMp4 } from "@/lib/transcoder";
 
 const Index = () => {
   const { toast } = useToast();
@@ -16,10 +17,12 @@ const Index = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [selectedVoice, setSelectedVoice] = useState<string>(AVAILABLE_VOICES[0].id);
   const [isRewriting, setIsRewriting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string>();
   const [finalVideoBlob, setFinalVideoBlob] = useState<Blob>();
+  const [webmVideoBlob, setWebmVideoBlob] = useState<Blob>(); // Store WebM as fallback
 
   // File previews
   const [thumbnailPreview, setThumbnailPreview] = useState<string>();
@@ -49,6 +52,12 @@ const Index = () => {
       id: "composition",
       title: "Compose Video",
       description: "Combining thumbnail, video, audio, and captions",
+      status: "pending"
+    },
+    {
+      id: "transcode",
+      title: "Transcode to MP4",
+      description: "Converting video for maximum compatibility",
       status: "pending"
     },
     {
@@ -158,7 +167,7 @@ const Index = () => {
     try {
       // Step 1: Generate Voice-Over with ElevenLabs
       updateStep("tts", "processing");
-      const audioBlob = await generateVoiceWithElevenLabs(rewrittenJoke);
+      const audioBlob = await generateVoiceWithElevenLabs(rewrittenJoke, selectedVoice);
       updateStep("tts", "completed");
 
       // Step 2: Generate Captions
@@ -179,18 +188,87 @@ const Index = () => {
         captions
       };
 
-      const finalVideoBlob = await videoProcessor.processVideo(compositionData, (progress) => {
+      const webmVideoBlob = await videoProcessor.processVideo(compositionData, (progress) => {
         updateStep("composition", "processing", progress);
       });
       updateStep("composition", "completed");
+      
+      // Store WebM blob as fallback
+      setWebmVideoBlob(webmVideoBlob);
 
-      // Step 4: Final Processing
+      // Check if we already have MP4 (browser might support direct MP4 recording)
+      const isAlreadyMp4 = webmVideoBlob.type.includes('mp4');
+      
+      if (isAlreadyMp4) {
+        console.log('Video is already in MP4 format! No transcoding needed.');
+        updateStep("transcode", "completed");
+        updateStep("render", "processing");
+        
+        const videoUrl = URL.createObjectURL(webmVideoBlob);
+        setFinalVideoUrl(videoUrl);
+        setFinalVideoBlob(webmVideoBlob);
+        
+        updateStep("render", "completed");
+        setIsProcessing(false);
+        
+        toast({
+          title: "Video generated successfully!",
+          description: "Your joke short is ready for download (MP4 format)"
+        });
+        
+        return;
+      }
+
+      // Step 4: Transcode to MP4 (only if needed)
+      updateStep("transcode", "processing");
+      
+      // Check if transcoding is likely to work
+      if (!canTranscodeToMp4()) {
+        console.warn('MP4 transcoding may not work in this browser environment');
+        toast({
+          title: "Browser Compatibility Notice",
+          description: "MP4 transcoding may not work due to browser security policies. WebM format will be used.",
+          variant: "default"
+        });
+      }
+      
+      let mp4VideoBlob: Blob;
+      try {
+        mp4VideoBlob = await transcodeToMp4(webmVideoBlob, (progress) => {
+          updateStep("transcode", "processing", progress);
+        });
+        updateStep("transcode", "completed");
+        
+        toast({
+          title: "MP4 conversion successful!",
+          description: "Video has been converted to MP4 format"
+        });
+      } catch (transcodeError) {
+        console.error('Transcoding to MP4 failed:', transcodeError);
+        updateStep("transcode", "error");
+        
+        // Show warning but continue with WebM
+        const errorMessage = transcodeError instanceof Error ? transcodeError.message : 'Unknown error';
+        
+        toast({
+          title: "MP4 transcoding failed",
+          description: errorMessage.includes('SharedArrayBuffer') 
+            ? "Your browser doesn't support MP4 conversion. Download the WebM video instead."
+            : `Video will be available in WebM format. Error: ${errorMessage}`,
+          variant: "default"
+        });
+        
+        // Use WebM as fallback
+        mp4VideoBlob = webmVideoBlob;
+      }
+
+      // Step 5: Final Processing
       updateStep("render", "processing");
       
       // Convert to downloadable format
-      const videoUrl = URL.createObjectURL(finalVideoBlob);
+      const videoUrl = URL.createObjectURL(mp4VideoBlob);
       setFinalVideoUrl(videoUrl);
-      setFinalVideoBlob(finalVideoBlob);
+      setFinalVideoBlob(mp4VideoBlob);
       
       updateStep("render", "completed");
       setIsProcessing(false);
@@ -221,7 +299,9 @@ const Index = () => {
   const handleDownload = () => {
     if (finalVideoBlob) {
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      const filename = `joke-short-${timestamp}.webm`;
+      const isMp4 = finalVideoBlob.type.includes('mp4');
+      const extension = isMp4 ? 'mp4' : 'webm';
+      const filename = `joke-short-${timestamp}.${extension}`;
       downloadFile(finalVideoBlob, filename);
       toast({
         title: "Download started",
@@ -232,6 +312,18 @@ const Index = () => {
         title: "No video available",
         description: "Please process your video first",
         variant: "destructive"
+      });
+    }
+  };
+
+  const handleDownloadWebM = () => {
+    if (webmVideoBlob) {
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `joke-short-${timestamp}.webm`;
+      downloadFile(webmVideoBlob, filename);
+      toast({
+        title: "Download started",
+        description: `${filename} (WebM format) is being downloaded`
       });
     }
   };
@@ -250,6 +342,8 @@ const Index = () => {
             setRewrittenJoke={setRewrittenJoke}
             isRewriting={isRewriting}
             onRewrite={handleRewriteJoke}
+            selectedVoice={selectedVoice}
+            setSelectedVoice={setSelectedVoice}
           />
 
           {/* Steps 2-4: File Uploads */}

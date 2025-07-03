@@ -55,9 +55,53 @@ export class VideoProcessor {
 
       onProgress?.(50);
 
-      // Set up media recorder
+      // Determine the best output format
+      let mimeType = '';
+      let outputFormat = 'webm'; // default
+      
+      // Check for MP4 support first (would eliminate need for transcoding)
+      const mp4Types = [
+        'video/mp4;codecs=h264,mp4a.40.2',
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4'
+      ];
+      
+      for (const type of mp4Types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          outputFormat = 'mp4';
+          console.log('Browser supports direct MP4 recording with:', mimeType);
+          break;
+        }
+      }
+      
+      // If MP4 not supported, fall back to WebM
+      if (!mimeType) {
+        const webmTypes = [
+          'video/webm;codecs=vp9,opus',
+          'video/webm;codecs=vp8,opus',
+          'video/webm;codecs=vp9',
+          'video/webm;codecs=vp8',
+          'video/webm'
+        ];
+        
+        for (const type of webmTypes) {
+          if (MediaRecorder.isTypeSupported(type)) {
+            mimeType = type;
+            outputFormat = 'webm';
+            console.log('Using WebM format:', mimeType);
+            break;
+          }
+        }
+      }
+      
+      if (!mimeType) {
+        throw new Error('No supported video formats found in this browser');
+      }
+
       this.mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9'
+        mimeType,
+        videoBitsPerSecond: outputFormat === 'mp4' ? 8000000 : 5000000 // Higher bitrate for MP4
       });
 
       this.recordedChunks = [];
@@ -79,12 +123,23 @@ export class VideoProcessor {
       onProgress?.(90);
 
       // Stop recording and return result
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         this.mediaRecorder!.onstop = () => {
-          const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
-          onProgress?.(100);
-          resolve(blob);
+          try {
+            const blob = new Blob(this.recordedChunks, { type: mimeType });
+            console.log(`Created ${outputFormat.toUpperCase()} blob:`, blob.size, 'bytes, type:', blob.type);
+            onProgress?.(100);
+            resolve(blob);
+          } catch (error) {
+            reject(error);
+          }
         };
+        
+        this.mediaRecorder!.onerror = (event: any) => {
+          console.error('MediaRecorder error:', event.error);
+          reject(event.error);
+        };
+        
         this.mediaRecorder!.stop();
         audioSource.stop();
         audioContext.close();
