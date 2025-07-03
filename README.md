@@ -1,73 +1,71 @@
-# Welcome to your Lovable project
+# Joke Spark Video Lab
+![Screenshot 2025-07-03 at 11 41 33 AM](https://github.com/user-attachments/assets/38051290-c374-4b38-8fcc-069fe6ba8692)
 
-## Project info
+A React-based video generator for creating short-form content. Enter a joke, and the app handles the rest - adding AI-generated audio, captions, and script generation to produce exportable MP4 files ready for your shorts platform.
 
-**URL**: https://lovable.dev/projects/4d8a386f-7d0b-4135-bd0d-0691d8ad9b6b
+## Features
 
-## How can I edit this code?
+- **Joke Input**: Simple interface for entering your joke content
+- **AI Audio Generation**: Uses ElevenLabs for natural-sounding voiceovers
+- **Smart Captions**: OpenAI generates and formats captions automatically
+- **Script Enhancement**: AI improves and structures your content
+- **MP4 Export**: Produces ready-to-upload video files for social platforms
+- **Modern UI**: Built with shadcn/ui components for a clean, responsive interface
 
-There are several ways of editing your application.
+## Installation
 
-**Use Lovable**
+```bash
+npm install
+```
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4d8a386f-7d0b-4135-bd0d-0691d8ad9b6b) and start prompting.
+## Usage
 
-Changes made via Lovable will be committed automatically to this repo.
+Start the development server:
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Available Scripts
 
-**Use GitHub Codespaces**
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run build:dev` - Build in development mode
+- `npm run lint` - Run ESLint
+- `npm run preview` - Preview production build
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Tech Stack
 
-## What technologies are used for this project?
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **UI Components**: shadcn/ui (Radix UI primitives)
+- **Styling**: Tailwind CSS
+- **Routing**: React Router DOM
+- **Forms**: React Hook Form with Zod validation
+- **State Management**: TanStack Query
+- **Charts**: Recharts
+- **Icons**: Lucide React
 
-This project is built with:
+## Project Structure
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+This is a standard Vite + React + TypeScript setup with:
+- Modern UI components from Radix UI
+- Tailwind CSS for styling
+- Form handling and validation
+- Routing capabilities
+- Data visualization tools
 
-## How can I deploy this project?
+## API Integrations
 
-Simply open [Lovable](https://lovable.dev/projects/4d8a386f-7d0b-4135-bd0d-0691d8ad9b6b) and click on Share -> Publish.
+- **ElevenLabs**: Audio generation
+- **OpenAI**: Caption and script generation
 
-## Can I connect a custom domain to my Lovable project?
+## Repository
 
-Yes, you can!
+[GitHub - joke-spark-video-lab](https://github.com/lalomorales22/joke-spark-video-lab)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Built for creating engaging short-form video content with minimal manual work.
