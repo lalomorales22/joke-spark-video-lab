@@ -94,3 +94,38 @@ export const generateVoiceWithElevenLabs = async (text: string): Promise<Blob> =
     throw error;
   }
 };
+
+export const generateCaptions = (text: string, audioDuration: number) => {
+  const words = text.split(' ');
+  const timePerWord = audioDuration / words.length;
+  
+  const captions = words.map((word, index) => ({
+    word,
+    start: index * timePerWord,
+    end: (index + 1) * timePerWord
+  }));
+  
+  return captions;
+};
+
+export const downloadFile = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+export const getAudioDuration = (audioBlob: Blob): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio();
+    audio.onloadedmetadata = () => {
+      resolve(audio.duration);
+    };
+    audio.onerror = reject;
+    audio.src = URL.createObjectURL(audioBlob);
+  });
+};

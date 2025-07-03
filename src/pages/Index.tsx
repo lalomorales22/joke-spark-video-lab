@@ -4,7 +4,8 @@ import JokeInput from "@/components/studio/JokeInput";
 import FileUpload from "@/components/studio/FileUpload";
 import ProcessingSteps from "@/components/studio/ProcessingSteps";
 import { useToast } from "@/hooks/use-toast";
-import { rewriteJokeWithAI, hasValidApiKeys } from "@/lib/api";
+import { rewriteJokeWithAI, hasValidApiKeys, generateVoiceWithElevenLabs, generateCaptions, downloadFile, getAudioDuration } from "@/lib/api";
+import { VideoProcessor } from "@/lib/videoProcessor";
 
 const Index = () => {
   const { toast } = useToast();
@@ -18,6 +19,7 @@ const Index = () => {
   const [isRewriting, setIsRewriting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string>();
+  const [finalVideoBlob, setFinalVideoBlob] = useState<Blob>();
 
   // File previews
   const [thumbnailPreview, setThumbnailPreview] = useState<string>();
@@ -128,57 +130,108 @@ const Index = () => {
   };
 
   const canStartProcessing = (): boolean => {
-    return !!(rewrittenJoke.trim() && videoFile && thumbnailFile && avatarFile);
+    return !!(rewrittenJoke.trim() && videoFile && thumbnailFile && avatarFile && hasValidApiKeys());
   };
 
   const handleStartProcessing = async () => {
     if (!canStartProcessing()) {
       toast({
         title: "Missing requirements",
-        description: "Please complete all steps before processing",
+        description: "Please complete all steps and configure API keys before processing",
         variant: "destructive"
       });
       return;
     }
 
     setIsProcessing(true);
-    
-    // TODO: Implement actual video processing pipeline
-    // This will involve:
-    // 1. Sending rewritten joke to ElevenLabs for TTS
-    // 2. Generating captions with timing
-    // 3. Video composition with FFmpeg or similar
-    // 4. Combining all elements
-
-    // Simulate processing steps
     const steps = [...processingSteps];
     
-    for (let i = 0; i < steps.length; i++) {
-      steps[i].status = "processing";
-      setProcessingSteps([...steps]);
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      steps[i].status = "completed";
-      setProcessingSteps([...steps]);
-    }
-
-    // Simulate final video
-    setFinalVideoUrl("https://example.com/final-video.mp4"); // This would be the actual generated video
-    setIsProcessing(false);
+    const updateStep = (stepId: string, status: "processing" | "completed" | "error", progress?: number) => {
+      const stepIndex = steps.findIndex(s => s.id === stepId);
+      if (stepIndex !== -1) {
+        steps[stepIndex].status = status;
+        if (progress !== undefined) steps[stepIndex].progress = progress;
+        setProcessingSteps([...steps]);
+      }
+    };
     
-    toast({
-      title: "Video generated successfully!",
-      description: "Your joke short is ready for download"
-    });
+    try {
+      // Step 1: Generate Voice-Over with ElevenLabs
+      updateStep("tts", "processing");
+      const audioBlob = await generateVoiceWithElevenLabs(rewrittenJoke);
+      updateStep("tts", "completed");
+
+      // Step 2: Generate Captions
+      updateStep("captions", "processing");
+      const audioDuration = await getAudioDuration(audioBlob);
+      const captions = generateCaptions(rewrittenJoke, audioDuration);
+      updateStep("captions", "completed");
+
+      // Step 3: Compose Video
+      updateStep("composition", "processing");
+      const videoProcessor = new VideoProcessor();
+      
+      const compositionData = {
+        videoFile: videoFile!,
+        thumbnailFile: thumbnailFile!,
+        avatarFile: avatarFile!,
+        audioBlob,
+        captions
+      };
+
+      const finalVideoBlob = await videoProcessor.processVideo(compositionData, (progress) => {
+        updateStep("composition", "processing", progress);
+      });
+      updateStep("composition", "completed");
+
+      // Step 4: Final Processing
+      updateStep("render", "processing");
+      
+      // Convert to downloadable format
+      const videoUrl = URL.createObjectURL(finalVideoBlob);
+      setFinalVideoUrl(videoUrl);
+      setFinalVideoBlob(finalVideoBlob);
+      
+      updateStep("render", "completed");
+      setIsProcessing(false);
+      
+      toast({
+        title: "Video generated successfully!",
+        description: "Your joke short is ready for download"
+      });
+
+    } catch (error) {
+      console.error('Video processing failed:', error);
+      
+      // Mark current step as error
+      const currentStepId = steps.find(s => s.status === "processing")?.id;
+      if (currentStepId) {
+        updateStep(currentStepId, "error");
+      }
+      
+      setIsProcessing(false);
+      toast({
+        title: "Processing failed",
+        description: error instanceof Error ? error.message : "An error occurred during processing",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDownload = () => {
-    if (finalVideoUrl) {
-      // TODO: Implement actual download functionality
+    if (finalVideoBlob) {
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `joke-short-${timestamp}.webm`;
+      downloadFile(finalVideoBlob, filename);
       toast({
         title: "Download started",
-        description: "Your video is being downloaded"
+        description: `${filename} is being downloaded`
+      });
+    } else {
+      toast({
+        title: "No video available",
+        description: "Please process your video first",
+        variant: "destructive"
       });
     }
   };
