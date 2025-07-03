@@ -4,6 +4,7 @@ import JokeInput from "@/components/studio/JokeInput";
 import FileUpload from "@/components/studio/FileUpload";
 import ProcessingSteps from "@/components/studio/ProcessingSteps";
 import { useToast } from "@/hooks/use-toast";
+import { rewriteJokeWithAI, hasValidApiKeys } from "@/lib/api";
 
 const Index = () => {
   const { toast } = useToast();
@@ -66,18 +67,34 @@ const Index = () => {
       return;
     }
 
+    if (!hasValidApiKeys()) {
+      toast({
+        title: "API Keys Required",
+        description: "Please configure your API keys in settings first",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsRewriting(true);
     
-    // TODO: Integrate with OpenAI API
-    // For now, simulate the API call
-    setTimeout(() => {
-      setRewrittenJoke(`Here's your enhanced joke: ${joke} (This is a placeholder - OpenAI integration needed)`);
-      setIsRewriting(false);
+    try {
+      const enhancedJoke = await rewriteJokeWithAI(joke);
+      setRewrittenJoke(enhancedJoke);
       toast({
         title: "Joke rewritten!",
         description: "Your joke has been enhanced by AI"
       });
-    }, 2000);
+    } catch (error) {
+      console.error('Failed to rewrite joke:', error);
+      toast({
+        title: "Error rewriting joke",
+        description: "Please check your API key and try again",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRewriting(false);
+    }
   };
 
   const handleFileSelect = (file: File, type: "video" | "thumbnail" | "avatar") => {
